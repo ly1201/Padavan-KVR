@@ -424,14 +424,14 @@ jobs:
         echo "CONFIG_FIRMWARE_INCLUDE_MSD_LITE=y" >> .config #MSD_LITE工具
         
 
-        #echo "CONFIG_FIRMWARE_INCLUDE_V2RAYA=n" >> .config #v2raya 已删除 /trunk/user/httpd/common.h
-        #echo "CONFIG_FIRMWARE_INCLUDE_NVPPROXY=n" >> .config #NVPPROXY 已删除 请查看/trunk/user/httpd/common.h
+        #echo "CONFIG_FIRMWARE_INCLUDE_V2RAYA=y" >> .config #v2raya 已删除 /trunk/user/httpd/common.h
+        #echo "CONFIG_FIRMWARE_INCLUDE_NVPPROXY=y" >> .config #NVPPROXY 已删除 请查看/trunk/user/httpd/common.h
         ##科学上网## 已删除 /trunk/user/httpd/common.h
-        #echo "CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS=n" >> .config #SS plus+ 科学上网插件
-        #echo "CONFIG_FIRMWARE_INCLUDE_V2RAY=n" >> .config #无需集成会在线下载
-        #echo "CONFIG_FIRMWARE_INCLUDE_XRAY=n" >> .config #无需集成会在线下载
-        #echo "CONFIG_FIRMWARE_INCLUDE_TROJAN=n" >> .config #无需集成会在线下载
-        #echo "CONFIG_FIRMWARE_INCLUDE_SSOBFS=n" >> .config # simple-obfs混淆插件
+        #echo "CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS=y" >> .config #SS plus+ 科学上网插件
+        #echo "CONFIG_FIRMWARE_INCLUDE_V2RAY=y" >> .config #无需集成会在线下载
+        #echo "CONFIG_FIRMWARE_INCLUDE_XRAY=y" >> .config #无需集成会在线下载
+        #echo "CONFIG_FIRMWARE_INCLUDE_TROJAN=y" >> .config #无需集成会在线下载
+        #echo "CONFIG_FIRMWARE_INCLUDE_SSOBFS=y" >> .config # simple-obfs混淆插件
         
         #########################################################################################
         sudo ./clear_tree
