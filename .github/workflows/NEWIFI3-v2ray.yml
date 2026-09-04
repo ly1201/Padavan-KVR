@@ -1,0 +1,89 @@
+name: NEWIFI3 v2ray embedded
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    steps:
+      - name: Install dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install unzip libtool-bin curl cmake gperf gawk flex bison nano xxd fakeroot cpio git python3-docutils gettext automake autopoint texinfo build-essential help2man pkg-config zlib1g-dev libgmp3-dev libmpc-dev libmpfr-dev libncurses5-dev libltdl-dev wget
+
+      - name: Install UPX
+        uses: crazy-max/ghaction-upx@v3
+        with:
+          version: v4.2.4
+          install-only: true
+
+      - name: Prepare source and toolchain
+        run: |
+          sudo git clone --depth=1 https://github.com/ly1201/padavan-KVR.git /opt/rt-n56u
+          cd /opt/rt-n56u/toolchain-mipsel
+          sudo sh dl_toolchain.sh
+          sudo mkdir -p /opt/images
+          sudo sed -i 's/^CONFIG_MTD_STORE_PART_SIZ=.*/CONFIG_MTD_STORE_PART_SIZ=0x400000/' /opt/rt-n56u/trunk/configs/boards/NEWIFI3/kernel-3.4.x.config
+          sudo sed -i 's/^size_etc=.*/size_etc="4M"/' /opt/rt-n56u/trunk/user/scripts/dev_init.sh
+          sudo sed -i 's/^mtd_part_size=.*/mtd_part_size=4194304/' /opt/rt-n56u/trunk/user/scripts/mtd_storage.sh
+
+      - name: Build NEWIFI3 with embedded v2ray
+        run: |
+          cd /opt/rt-n56u/trunk
+          sudo cp -f configs/templates/NEWIFI3.config .config
+          set_cfg() {
+            sudo sed -i "/^$1=/d;/^# *$1 /d" .config
+            echo "$1=$2" | sudo tee -a .config >/dev/null
+          }
+
+          set_cfg CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS y
+          set_cfg CONFIG_FIRMWARE_INCLUDE_V2RAY y
+          set_cfg CONFIG_FIRMWARE_INCLUDE_XRAY n
+          set_cfg CONFIG_FIRMWARE_INCLUDE_TROJAN n
+          set_cfg CONFIG_FIRMWARE_INCLUDE_SSOBFS n
+          set_cfg CONFIG_FIRMWARE_INCLUDE_V2RAYA n
+          set_cfg CONFIG_FIRMWARE_ENABLE_IPV6 y
+          set_cfg CONFIG_FIRMWARE_INCLUDE_CURL y
+          set_cfg CONFIG_FIRMWARE_INCLUDE_DROPBEAR y
+          set_cfg CONFIG_FIRMWARE_INCLUDE_DROPBEAR_FAST_CODE y
+          set_cfg CONFIG_FIRMWARE_INCLUDE_OPENSSH n
+
+          set_cfg CONFIG_FIRMWARE_ENABLE_USB y
+          set_cfg CONFIG_FIRMWARE_ENABLE_FAT y
+          set_cfg CONFIG_FIRMWARE_ENABLE_EXFAT y
+          set_cfg CONFIG_FIRMWARE_INCLUDE_SMARTDNS y
+          set_cfg CONFIG_FIRMWARE_INCLUDE_TTYD y
+          set_cfg CONFIG_FIRMWARE_INCLUDE_TCPDUMP y
+
+          disabled_options="CONFIG_FIRMWARE_ENABLE_UFSD CONFIG_FIRMWARE_ENABLE_EXT2 CONFIG_FIRMWARE_ENABLE_EXT3 CONFIG_FIRMWARE_ENABLE_EXT4 CONFIG_FIRMWARE_ENABLE_XFS CONFIG_FIRMWARE_ENABLE_FUSE CONFIG_FIRMWARE_ENABLE_SWAP CONFIG_FIRMWARE_INCLUDE_UVC CONFIG_FIRMWARE_INCLUDE_HID CONFIG_FIRMWARE_INCLUDE_SERIAL CONFIG_FIRMWARE_INCLUDE_AUDIO CONFIG_FIRMWARE_INCLUDE_CIFS CONFIG_FIRMWARE_INCLUDE_LPRD CONFIG_FIRMWARE_INCLUDE_U2EC CONFIG_FIRMWARE_INCLUDE_HDPARM CONFIG_FIRMWARE_INCLUDE_PARTED CONFIG_FIRMWARE_INCLUDE_SMBD CONFIG_FIRMWARE_INCLUDE_SMBD36 CONFIG_FIRMWARE_INCLUDE_FTPD CONFIG_FIRMWARE_INCLUDE_SFTP CONFIG_FIRMWARE_INCLUDE_HTTPS CONFIG_FIRMWARE_INCLUDE_OPENVPN CONFIG_FIRMWARE_INCLUDE_XUPNPD CONFIG_FIRMWARE_INCLUDE_MINIDLNA CONFIG_FIRMWARE_INCLUDE_FIREFLY CONFIG_FIRMWARE_INCLUDE_FFMPEG_NEW CONFIG_FIRMWARE_INCLUDE_TRANSMISSION CONFIG_FIRMWARE_INCLUDE_TRANSMISSION_WEB_CONTROL CONFIG_FIRMWARE_INCLUDE_ARIA CONFIG_FIRMWARE_INCLUDE_ARIA_WEB_CONTROL CONFIG_FIRMWARE_INCLUDE_LRZSZ CONFIG_FIRMWARE_INCLUDE_HTOP CONFIG_FIRMWARE_INCLUDE_NANO CONFIG_FIRMWARE_INCLUDE_IPERF3 CONFIG_FIRMWARE_INCLUDE_DUMP1090 CONFIG_FIRMWARE_INCLUDE_RTL_SDR CONFIG_FIRMWARE_INCLUDE_MTR CONFIG_FIRMWARE_INCLUDE_SOCAT CONFIG_FIRMWARE_INCLUDE_SRELAY CONFIG_FIRMWARE_INCLUDE_FRPC CONFIG_FIRMWARE_INCLUDE_FRPS CONFIG_FIRMWARE_INCLUDE_WIREGUARD CONFIG_FIRMWARE_INCLUDE_ZEROTIER CONFIG_FIRMWARE_INCLUDE_ALIDDNS CONFIG_FIRMWARE_INCLUDE_DDNSTO CONFIG_FIRMWARE_INCLUDE_TAILSCALE CONFIG_FIRMWARE_INCLUDE_NATPIERCE CONFIG_FIRMWARE_INCLUDE_VNTCLI CONFIG_FIRMWARE_INCLUDE_VNTS CONFIG_FIRMWARE_INCLUDE_CLOUDFLARED CONFIG_FIRMWARE_INCLUDE_LUCKY CONFIG_FIRMWARE_INCLUDE_CLOUDFLARE CONFIG_FIRMWARE_INCLUDE_EASYTIER CONFIG_FIRMWARE_INCLUDE_ALIST CONFIG_FIRMWARE_INCLUDE_WXSEND CONFIG_FIRMWARE_INCLUDE_UUPLUGIN CONFIG_FIRMWARE_INCLUDE_VIRTUALHERE CONFIG_FIRMWARE_INCLUDE_BAFA CONFIG_FIRMWARE_INCLUDE_CADDY CONFIG_FIRMWARE_INCLUDE_ADGUARDHOME CONFIG_FIRMWARE_INCLUDE_MSD_LITE CONFIG_FIRMWARE_INCLUDE_VLMCSD CONFIG_FIRMWARE_INCLUDE_SCUTCLIENT CONFIG_FIRMWARE_INCLUDE_GDUT_DRCOM CONFIG_FIRMWARE_INCLUDE_DOGCOM CONFIG_FIRMWARE_INCLUDE_MINIEAP CONFIG_FIRMWARE_INCLUDE_NJIT_CLIENT CONFIG_FIRMWARE_INCLUDE_MENTOHUST"
+          for option in $disabled_options; do
+            set_cfg "$option" n
+          done
+
+          sudo ./clear_tree
+          sudo ./build_firmware_modify NEWIFI3 0
+          sudo test -x romfs/usr/bin/v2ray
+          sudo romfs/usr/bin/v2ray version || true
+          sudo cp -f images/*.trx /opt/images/
+          sudo cp -f .config /opt/images/NEWIFI3-v2ray.config
+          cd /opt/images
+          sha256sum *.trx | sudo tee SHA256SUMS
+          ls -lh
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: NEWIFI3-v2ray-embedded
+          path: /opt/images/
+          if-no-files-found: error
+          retention-days: 7
